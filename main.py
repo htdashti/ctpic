@@ -159,9 +159,12 @@ def run_on_a_structure(output_root, sdf_file_path):
     entries_carbohydrate_dic["cmp_penalty"] = cmp_penalty
     json.dump(entries_carbohydrate_dic, open(os.path.join(output_root, "output.json"), "w"), indent=4)
 
+    pdb_ligands_similar_cmp = get_most_similar_structures(sdf_file_path)
+
     os.system('rm -f *.pyc')
     os.chdir(output_root)
-    os.system('zip -q outputs.zip output.json')
+    json.dump(pdb_ligands_similar_cmp, open("similar_cmp_pdb_map.json", "w"), indent=4)
+    os.system('zip -q output_web.zip similar_cmp_pdb_map.json output.json')
     return entries_carbohydrate_dic["best_penalty"]
 
 
@@ -169,14 +172,42 @@ def get_alatis_structure(sdf_file_path):
     req = requests.post('http://alatis.nmrfam.wisc.edu/upload',
                         data={'format': 'sdf', 'response_type': 'json', 'project_2_to_3': 'on', 'add_hydrogens': 'on'},
                         files={'infile': open(sdf_file_path, 'r')}).json()
-    print(req)
+    # print(req)
+    if req["status"] == "error":
+        req["structure"] = open(sdf_file_path, 'r').read()
+        req["html_url"] = "ALATIS could not process the input file"
+        req["inchi"] = "ALATIS could not process the input file"
     return req["structure"], req["html_url"], req["inchi"], req["status"]
+
+
+def get_most_similar_structures(alatis_output_file_name):
+    ligans_to_pdb_links = json.load(open("ligands_links_to_pdb.json", "r"))
+
+    def get_pdb_protein_ids(ligand_id):
+        pdb_ids = []
+        if ligand_id in ligans_to_pdb_links:
+            pdb_ids = ligans_to_pdb_links[ligand_id]
+        return pdb_ids
+    command = "obabel pdb_ligands.fs -O obabel_similar_cmps.sdf -s%s -at5" % alatis_output_file_name
+    os.system(command)
+    content = open("obabel_similar_cmps.sdf", "r").read().split("$$$$\n")
+    similar_entries = []
+    for a_file in content:
+        lines = a_file.split("\n")
+        # for _ in range(len(lines)):
+        #     print([_, lines[_]])
+        similar_entries.append(lines[0])
+    pdb_map = {}
+    for _ in similar_entries:
+        if _:
+            pdb_map[_] = get_pdb_protein_ids(_)
+    return pdb_map
 
 
 if __name__ == "__main__":
     sdf_file_path = sys.argv[1]
     alatis_structure, alatis_url, alatis_inchi, alatis_status = get_alatis_structure(sdf_file_path)
-    alatis_output_file_name = "alatis_called_to_generate_structure.sdf"
+    alatis_output_file_name = sdf_file_path  # "alatis_called_to_generate_structure.sdf"
     fout = open(alatis_output_file_name, "w")
     fout.write(alatis_structure)
     fout.close()
@@ -186,11 +217,19 @@ if __name__ == "__main__":
            "alatis_inchi": alatis_inchi,
            "input_structure": sdf_file_path,
            "alatis_status": alatis_status,
-           "error": ""}
+           "error": "",
+           "warning": ""}
+    if alatis_status == "error":
+        msg["warning"] = "ALATIS could not process the input file"
     try:
         best_penalty = run_on_a_structure("./", sdf_file_path)
         msg["run_message"] = "run_msg"
+        try:
+            similar_cmp_pdb_map = get_most_similar_structures(alatis_output_file_name)
+            json.dump(similar_cmp_pdb_map, open("similar_cmp_pdb_map.json", "w"), indent=4)
+        except:
+            msg["error"] = "Could not find similar compounds"
     except:
         msg["error"] = "Something went wrong! Could not finish processing the input file"
     json.dump(msg, open("msg.json", "w"), indent=4)
-    os.system('zip -q output_web.zip alatis_output.sdf msg.json output.json')
+    os.system('zip -q output_web.zip msg.json output.json similar_cmp_pdb_map.json %s' % sdf_file_path)

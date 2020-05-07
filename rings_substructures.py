@@ -1,5 +1,6 @@
 from aux_functions import are_in_one_cycle, get_dic_of_number_of_atoms_in_path, \
     parse_atom_nghs, there_is_double_bond
+import sys
 
 
 def get_cor_groups(atoms, cycles):
@@ -297,8 +298,9 @@ def find_xylos_rings(mol, atoms, cycles):  #, coh_groups, CH2OH_groups, CH2OR_gr
     report("terminal_subgroups")
     report(terminal_subgroups)
     xylos_groups = []
-
+    messages_xylos_groups = []
     for a_circle in cycles:
+        messages = []
         if len(a_circle) >= 7:
             continue
         curr_terminal_subgroups = add_terminal_groups(terminal_subgroups, get_c_chx_or(atoms, a_circle))
@@ -311,11 +313,29 @@ def find_xylos_rings(mol, atoms, cycles):  #, coh_groups, CH2OH_groups, CH2OR_gr
         report(">>>>")
         # does the circle have an O
         has_an_O = False
+        ring_o_list = []
+        ring_other_list = []
         for atom_name in [atoms[_].get_atom_name() for _ in a_circle]:
-            if atom_name in ["O", "S", "P", "N", "Se"]:
-                has_an_O = True
-                break
-        # for ring O subs to C, all of the atoms in the circule should have 4 bonds. Otherwise cyclitols?!
+            if atom_name == "O":
+                ring_o_list.append(atom_name)
+            if atom_name in ["S", "P", "N", "Se"]:
+                ring_other_list.append(atom_name)
+        if ring_o_list:
+            has_an_O = True
+        else:
+            if ring_other_list:
+                c_count = 0
+                num_four_bound_carbons = 0
+                for _ in a_circle:
+                    if atoms[_].get_atom_name() == "C":
+                        c_count += 1
+                        nghs_list = atoms[_].get_ngh()
+                        if len(nghs_list) >= 4:
+                            num_four_bound_carbons += 1
+                if c_count == num_four_bound_carbons:
+                    has_an_O = True
+                    messages.append("ring O substitution to 'S', 'P', 'N', or 'Se'")
+        # for ring O subs to C, all of the atoms in the circle should have 4 bonds. Otherwise cyclitols?!
         if not has_an_O:
             num_four_bound_carbons = 0
             for _ in a_circle:
@@ -325,13 +345,21 @@ def find_xylos_rings(mol, atoms, cycles):  #, coh_groups, CH2OH_groups, CH2OR_gr
                         num_four_bound_carbons += 1
             if num_four_bound_carbons == len(a_circle):
                 has_an_O = True
+                messages.append("ring O substitution to 'C'")
         report("has O: %d" % has_an_O)
         if has_an_O:
             num_coh = 0
+            c_counter = 0
             for an_atom in a_circle:
+                if atoms[an_atom].get_atom_name() == "C":
+                    c_counter += 1
                 if an_atom in curr_terminal_subgroups:
                     num_coh += 1
             report("num_coh: %d" % num_coh)
             if num_coh >= 3:
+                if c_counter < 3:
+                    print(a_circle)
+                    print("c_counter < 3")
+                    sys.exit(3)
                 xylos_groups.append(a_circle)
     return xylos_groups
