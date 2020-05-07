@@ -172,7 +172,6 @@ def get_alatis_structure(sdf_file_path):
     req = requests.post('http://alatis.nmrfam.wisc.edu/upload',
                         data={'format': 'sdf', 'response_type': 'json', 'project_2_to_3': 'on', 'add_hydrogens': 'on'},
                         files={'infile': open(sdf_file_path, 'r')}).json()
-    # print(req)
     if req["status"] == "error":
         req["structure"] = open(sdf_file_path, 'r').read()
         req["html_url"] = "ALATIS could not process the input file"
@@ -194,8 +193,6 @@ def get_most_similar_structures(alatis_output_file_name):
     similar_entries = []
     for a_file in content:
         lines = a_file.split("\n")
-        # for _ in range(len(lines)):
-        #     print([_, lines[_]])
         similar_entries.append(lines[0])
     pdb_map = {}
     for _ in similar_entries:

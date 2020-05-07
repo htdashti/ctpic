@@ -11,8 +11,6 @@ def clean_folder(entry_path):
 
 
 root_db = os.path.abspath("../data/Components-pub_alatis_processed/")
-# root_db = os.path.abspath("/home/nmrbox/hdashti/Desktop/Carbohydrates_2019/codes_for_paper/extract_examples/examples_saccharides")
-# root_db = os.path.abspath("/home/nmrbox/hdashti/Desktop/Carbohydrates_2019/codes_for_paper/extract_examples/non_saccharides/")
 
 fout_missing_sdf = open("../missing_sdf.txt", "w")
 fout_failed_sdf = open("../failed_sdf.txt", "w")
@@ -25,7 +23,6 @@ for an_entry in sorted(os.listdir(root_db)):
     entry_folder = os.path.join(root_db, an_entry)
     clean_folder(entry_folder)
     cmp_name = "alatis_output_compound.sdf"
-    # cmp_name = "compound.sdf"
     sdf_path = os.path.join(entry_folder, cmp_name)
     if not os.path.exists(sdf_path):
         fout_missing_sdf.write("%s\n" % an_entry)
